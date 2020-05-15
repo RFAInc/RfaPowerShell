@@ -966,3 +966,69 @@ function Send-WOL
 
 }
 
+function Find-PstFullName
+{
+    <#
+    .SYNOPSIS
+    Searches the computer local disks and finds any files of type PST.
+    #>
+
+    param (
+        # The target computer(s) to search for PST files.
+        [Parameter()]
+        [string[]]
+        $ComputerName = @($env:COMPUTERNAME),
+
+        # Option to include the ComputerName with the output, useful when performing this search on multiple devices.
+        [Parameter()]
+        [switch]
+        $IncludeName
+    )    
+
+    Begin {}
+
+    Process {
+
+        Foreach ($Computer in $ComputerName) {
+
+            Write-Verbose "Searching for PST files under all local disks on $($Computer)"
+
+            $cimSplat = @{
+                ComputerName = $Computer
+                Namespace = 'root/cimv2'
+                Class = 'win32_logicaldisk'
+                Filter = "DriveType='3'"
+            }
+
+            if ($IncludeName) {
+                Write-Output "`n$($Computer):"
+            }
+
+            Get-CimInstance @cimSplat |
+                Select-Object -ExpandProperty DeviceID | 
+                ForEach-Object {
+                    Get-ChildItem $_ -Include *.PST -Force -Recurse -ea 0
+                } |
+                Select-Object -ExpandProperty FullName  
+
+        }
+
+    }
+        
+    End {}
+}
+
+
+<#
+new draft functions
+# >
+
+$cimSplat = @{
+    Namespace = 'root/cimv2/mdm/dmmap'
+    Class = 'MDM_DevDetail_Ext01'
+    Filter = "InstanceID='Ext' AND ParentID='./DevDetail'"
+}
+Get-CimInstance @cimSplat | Select-Object -ExpandProperty DeviceHardwareData
+# For all workstations (edited) 
+
+#>
