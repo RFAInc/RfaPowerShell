@@ -979,19 +979,47 @@ function Find-PstFullName
         [string[]]
         $ComputerName = @($env:COMPUTERNAME),
 
+        # Option to include the Current Timestamp and file Modified Date with the output, useful when reviewing historical data in the future.
+        [Parameter()]
+        [switch]
+        $IncludeDate,
+
         # Option to include the ComputerName with the output, useful when performing this search on multiple devices.
         [Parameter()]
         [switch]
         $IncludeName
     )    
 
-    Begin {}
+    Begin {
+        $strDateFormat = 'yyyy-MM-dd_HH:mm:ss'
+        $Now = Get-Date
+    }
 
     Process {
 
         Foreach ($Computer in $ComputerName) {
 
             Write-Verbose "Searching for PST files under all local disks on $($Computer)"
+
+            $SelectSplat = if ($IncludeDate) {
+                @{
+                    ExpandProperty = $true
+                    Property = @{
+                        Name = 'Result'
+                        Expression = {
+                            '[{0}] Modified: {1} Discovered: {2}' -f
+                                ($_.FullName),
+                                ($_.LastWriteTime.ToString($strDateFormat)),
+                                ($Now.ToString($strDateFormat))
+                        }
+                    }
+                }
+            } else {
+                @{
+                    ExpandProperty = $true
+                    Property = 'FullName'
+                }
+            }
 
             $cimSplat = @{
                 ComputerName = $Computer
@@ -1009,7 +1037,7 @@ function Find-PstFullName
                 ForEach-Object {
                     Get-ChildItem $_ -Include *.PST -Force -Recurse -ea 0
                 } |
-                Select-Object -ExpandProperty FullName  
+                Select-Object @SelectSplat
 
         }
 
