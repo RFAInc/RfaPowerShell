@@ -1027,18 +1027,18 @@ function Find-PstFullName
         $strDateFormat = 'yyyy-MM-dd_HH:mm:ss'
         $Now = Get-Date
 
-        [scriptblock]$NothingFoundMessage = {
+        $NothingFoundMessage = [scriptblock]::Create(
             "No PST files were found on $($Computer)\. Discovered: $($Now.ToString($strDateFormat))"
-        }
+        )
 
-        $scrBlock = @"
+        $ScriptBlock = [scriptblock]::Create(@"
             (Get-CimLocalDisk).DeviceID | 
             ForEach-Object {
                 Get-ChildItem $_ -Include *.PST -Force -Recurse -ea 0
             } |
             Select-Object @SelectSplat
 "@
-        $ScriptBlock = [scriptblock]::Create($scrBlock)
+        )
     }
 
     Process {
@@ -1073,16 +1073,16 @@ function Find-PstFullName
 
             if ($ShowNothingFoundMessage) {
                 
-                $Result = $ScriptBlock
+                $Result = $ScriptBlock.Invoke()
                 
                 if ($Result) {
                     $Result
                 } else {
-                    $NothingFoundMessage
+                    $NothingFoundMessage.Invoke()
                 }
 
             } else {
-                $ScriptBlock
+                $ScriptBlock.Invoke()
             }
         }
 
