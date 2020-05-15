@@ -1031,14 +1031,14 @@ function Find-PstFullName
             "No PST files were found on $($Computer)\. Discovered: $($Now.ToString($strDateFormat))"
         }
 
-        [scriptblock]$ScriptBlock = {
-            Get-CimInstance @cimSplat |
-                Select-Object -ExpandProperty DeviceID | 
-                ForEach-Object {
-                    Get-ChildItem $_ -Include *.PST -Force -Recurse -ea 0
-                } |
-                Select-Object @SelectSplat
-        }
+        $scrBlock = @"
+            (Get-CimLocalDisk).DeviceID | 
+            ForEach-Object {
+                Get-ChildItem $_ -Include *.PST -Force -Recurse -ea 0
+            } |
+            Select-Object @SelectSplat
+"@
+        $ScriptBlock = [scriptblock]::Create($scrBlock)
     }
 
     Process {
@@ -1070,13 +1070,6 @@ function Find-PstFullName
             if ($IncludeName) {
                 Write-Output "`n$($Computer):"
             }
-
-            $cimSplat = @{
-                ComputerName = $Computer
-                Namespace = 'root/cimv2'
-                Class = 'win32_logicaldisk'
-                Filter = "DriveType='3'"
-            }    
 
             if ($ShowNothingFoundMessage) {
                 
