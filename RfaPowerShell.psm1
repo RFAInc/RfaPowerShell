@@ -1000,7 +1000,7 @@ function Find-PstFullName
         $Now = Get-Date
 
         $NothingFoundMessage = {
-            "No PST files were found on $($Computer). Discovered: $($Now.ToString($strDateFormat))"
+            "No PST files were found on $($Computer)\. Discovered: $($Now.ToString($strDateFormat))"
         }
 
         $ScriptBlock = {
