@@ -987,12 +987,30 @@ function Find-PstFullName
         # Option to include the ComputerName with the output, useful when performing this search on multiple devices.
         [Parameter()]
         [switch]
-        $IncludeName
+        $IncludeName,
+
+        # Option to output text when nothing is found, instead of null output.
+        [Parameter()]
+        [switch]
+        $ShowNothingFoundMessage
     )    
 
     Begin {
         $strDateFormat = 'yyyy-MM-dd_HH:mm:ss'
         $Now = Get-Date
+
+        $NothingFoundMessage = {
+            "No PST files were found on $($Computer). Discovered: $($Now.ToString($strDateFormat))"
+        }
+
+        $ScriptBlock = {
+            Get-CimInstance @cimSplat |
+                Select-Object -ExpandProperty DeviceID | 
+                ForEach-Object {
+                    Get-ChildItem $_ -Include *.PST -Force -Recurse -ea 0
+                } |
+                Select-Object @SelectSplat
+        }
     }
 
     Process {
@@ -1021,24 +1039,30 @@ function Find-PstFullName
                 }
             }
 
+            if ($IncludeName) {
+                Write-Output "`n$($Computer):"
+            }
+
             $cimSplat = @{
                 ComputerName = $Computer
                 Namespace = 'root/cimv2'
                 Class = 'win32_logicaldisk'
                 Filter = "DriveType='3'"
+            }    
+
+            if ($ShowNothingFoundMessage) {
+                
+                $Result = $ScriptBlock
+                
+                if ($Result) {
+                    $Result
+                } else {
+                    $NothingFoundMessage
+                }
+
+            } else {
+                $ScriptBlock
             }
-
-            if ($IncludeName) {
-                Write-Output "`n$($Computer):"
-            }
-
-            Get-CimInstance @cimSplat |
-                Select-Object -ExpandProperty DeviceID | 
-                ForEach-Object {
-                    Get-ChildItem $_ -Include *.PST -Force -Recurse -ea 0
-                } |
-                Select-Object @SelectSplat
-
         }
 
     }
