@@ -999,11 +999,11 @@ function Find-PstFullName
         $strDateFormat = 'yyyy-MM-dd_HH:mm:ss'
         $Now = Get-Date
 
-        $NothingFoundMessage = {
+        [scriptblock]$NothingFoundMessage = {
             "No PST files were found on $($Computer)\. Discovered: $($Now.ToString($strDateFormat))"
         }
 
-        $ScriptBlock = {
+        [scriptblock]$ScriptBlock = {
             Get-CimInstance @cimSplat |
                 Select-Object -ExpandProperty DeviceID | 
                 ForEach-Object {
