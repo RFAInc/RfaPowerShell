@@ -966,131 +966,19 @@ function Send-WOL
 
 }
 
-function Get-CimLocalDisk
-{
-    <#
-    .SYNOPSIS
-    Discovers any local disk on the system
-    #>
 
-    param(
-        # The target computer(s) to search for PST files.
-        [Parameter()]
-        [string[]]
-        $ComputerName = @($env:COMPUTERNAME)
-    )
-
-    Foreach ($Computer in $ComputerName) {
-
-        $cimSplat = @{
-            ComputerName = $Computer
-            Namespace = 'root/cimv2'
-            Class = 'win32_logicaldisk'
-            Filter = "DriveType='3'"
-        }    
-
-        Get-CimInstance @cimSplat
-
-    }
+# Load some external functions
+$web = New-Object Net.WebClient
+$TheseFunctionsForPstFileInfo = @(
+'https://raw.githubusercontent.com/tonypags/PsWinAdmin/master/Get-CimLocalDisk.ps1'
+'https://raw.githubusercontent.com/tonypags/PsWinAdmin/master/Find-FileByExtension.ps1'
+'https://raw.githubusercontent.com/tonypags/PsWinAdmin/master/Format-ObjectToString.ps1'
+'https://raw.githubusercontent.com/tonypags/PsWinAdmin/master/Find-PstFullName.ps1'
+)
+Foreach ($uri in $TheseFunctionsForPstFileInfo) {
+    $web.DownloadString($uri) | Invoke-Expression
 }
-
-function Find-PstFullName
-{
-    <#
-    .SYNOPSIS
-    Searches the computer local disks and finds any files of type PST.
-    #>
-
-    param (
-        # The target computer(s) to search for PST files.
-        [Parameter()]
-        [string[]]
-        $ComputerName = @($env:COMPUTERNAME),
-
-        # Option to include the Current Timestamp and file Modified Date with the output, useful when reviewing historical data in the future.
-        [Parameter()]
-        [switch]
-        $IncludeDate,
-
-        # Option to include the ComputerName with the output, useful when performing this search on multiple devices.
-        [Parameter()]
-        [switch]
-        $IncludeName,
-
-        # Option to output text when nothing is found, instead of null output.
-        [Parameter()]
-        [switch]
-        $ShowNothingFoundMessage
-    )    
-
-    Begin {
-        $strDateFormat = 'yyyy-MM-dd_HH:mm:ss'
-        $Now = Get-Date
-
-        $NothingFoundMessage = [scriptblock]::Create(
-            "No PST files were found on $($Computer)\. Discovered: $($Now.ToString($strDateFormat))"
-        )
-
-        $ScriptBlock = [scriptblock]::Create(@"
-            (Get-CimLocalDisk).DeviceID | 
-            ForEach-Object {
-                Get-ChildItem $_ -Include *.PST -Force -Recurse -ea 0
-            } |
-            Select-Object @SelectSplat
-"@
-        )
-    }
-
-    Process {
-
-        Foreach ($Computer in $ComputerName) {
-
-            Write-Verbose "Searching for PST files under all local disks on $($Computer)"
-
-            $SelectSplat = if ($IncludeDate) {
-                @{
-                    ExpandProperty = $true
-                    Property = @{
-                        Name = 'Result'
-                        Expression = {
-                            '[{0}] Modified: {1} Discovered: {2}' -f
-                                ($_.FullName),
-                                ($_.LastWriteTime.ToString($strDateFormat)),
-                                ($Now.ToString($strDateFormat))
-                        }
-                    }
-                }
-            } else {
-                @{
-                    ExpandProperty = $true
-                    Property = 'FullName'
-                }
-            }
-
-            if ($IncludeName) {
-                Write-Output "`n$($Computer):"
-            }
-
-            if ($ShowNothingFoundMessage) {
-                
-                $Result = $ScriptBlock.Invoke()
-                
-                if ($Result) {
-                    $Result
-                } else {
-                    $NothingFoundMessage.Invoke()
-                }
-
-            } else {
-                $ScriptBlock.Invoke()
-            }
-        }
-
-    }
-        
-    End {}
-}
-
+$web.Dispose | Out-Null
 
 <#
 new draft functions
