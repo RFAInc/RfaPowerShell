@@ -804,6 +804,8 @@ $TheseFunctionsForPstFileInfo = @(
     'https://raw.githubusercontent.com/tonypags/PsWinAdmin/master/Find-FileByExtension.ps1'
     'https://raw.githubusercontent.com/tonypags/PsWinAdmin/master/Format-ObjectToString.ps1'
     'https://raw.githubusercontent.com/tonypags/PsWinAdmin/master/Find-PstFullName.ps1'
+    'https://raw.githubusercontent.com/tonypags/PsWinAdmin/master/Confirm-RequiresAdmin.ps1'
+    'https://raw.githubusercontent.com/tonypags/PsWinAdmin/master/Get-MdmHardwareId.ps1'
 )
 Foreach ($uri in $TheseFunctionsForPstFileInfo) {
     $web.DownloadString($uri) | Invoke-Expression
