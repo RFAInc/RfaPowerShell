@@ -1,5 +1,19 @@
 # v1.1.3.12
 
+# Load some external functions
+$web = New-Object Net.WebClient
+$TheseFunctionsForPstFileInfo = @(
+    'https://raw.githubusercontent.com/tonypags/PsWinAdmin/master/Get-DsRegCmdStatus.ps1'
+    'https://raw.githubusercontent.com/tonypags/PsWinAdmin/master/Get-CimLocalDisk.ps1'
+    'https://raw.githubusercontent.com/tonypags/PsWinAdmin/master/Find-FileByExtension.ps1'
+    'https://raw.githubusercontent.com/tonypags/PsWinAdmin/master/Format-ObjectToString.ps1'
+    'https://raw.githubusercontent.com/tonypags/PsWinAdmin/master/Find-PstFullName.ps1'
+)
+Foreach ($uri in $TheseFunctionsForPstFileInfo) {
+    $web.DownloadString($uri) | Invoke-Expression
+}
+$web.Dispose | Out-Null
+
 function Add-TrueTypeFont {
     <#
     .SYNOPSIS
@@ -796,30 +810,222 @@ function Send-WOL
 }
 
 
-# Load some external functions
-$web = New-Object Net.WebClient
-$TheseFunctionsForPstFileInfo = @(
-    'https://raw.githubusercontent.com/tonypags/PsWinAdmin/master/Get-DsRegCmdStatus.ps1'
-    'https://raw.githubusercontent.com/tonypags/PsWinAdmin/master/Get-CimLocalDisk.ps1'
-    'https://raw.githubusercontent.com/tonypags/PsWinAdmin/master/Find-FileByExtension.ps1'
-    'https://raw.githubusercontent.com/tonypags/PsWinAdmin/master/Format-ObjectToString.ps1'
-    'https://raw.githubusercontent.com/tonypags/PsWinAdmin/master/Find-PstFullName.ps1'
-)
-Foreach ($uri in $TheseFunctionsForPstFileInfo) {
-    $web.DownloadString($uri) | Invoke-Expression
+function Assert-RegValueAndRestartService {
+    <#
+    .SYNOPSIS
+    Update a registry value and restart services.
+    .DESCRIPTION
+    Given a Key Path, Property Name, Value, and Service Name(s), 
+    this function will create or set the DWord value if required, 
+    then restart the services if a change was made. 
+    Other Property Types other than DWord are available, 
+    please use tab-completion for the PropertyType parameter.
+    .PARAMETER KeyPath
+    Full hive/key/path
+    .PARAMETER PropertyName
+    Property name to add
+    .PARAMETER PropertyType
+    Value type for the Property (e.g. dword); please use tab-completion
+    .PARAMETER Value
+    Value for the Property
+    .PARAMETER ServiceName
+    Name(s)--NOT DisplayName--of the services to restart, 
+    multiple OK if you put them in the correct STOP order, 
+    it will then start them all in the reverse order from the stop order.
+    .EXAMPLE
+    $Splat = @{
+        KeyPath = 'HKLM:\SOFTWARE\PowerShell\Awesomeness'
+        PropertyName = 'DisableAwesome'
+        Value = 0
+        ServiceName = 'bits'
+    }
+    Assert-RegValueAndRestartService @Splat -Verbose
+    #>
+    [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='Medium')]
+    param (
+        # Full hive/key/path
+        [Parameter(Mandatory=$true)]
+        [string]
+        $KeyPath,
+
+        # Property name to add
+        [Parameter(Mandatory=$true)]
+        [string]
+        $PropertyName,
+
+        # Value type for the Property (e.g. dword); please use tab-completion
+        [Parameter()]
+        [ValidateSet('String','ExpandString','Binary',
+            'DWord','MultiString','Qword','Unknown')]
+        [string]
+        $PropertyType='DWord',
+
+        # Value for the Property
+        [Parameter(Mandatory=$true)]
+        $Value,
+
+        # Name(s)--NOT DisplayName--of the services to restart, multiple OK if you put them in the correct STOP order, it will then start them all in the reverse order from the stop order.
+        [Parameter(Mandatory=$true)]
+        [string[]]
+        $ServiceName
+    )
+
+    begin {
+
+        # Define the WMI call we will make several times
+        $WmiSplat = @{
+            Filter = [string]('Name = "' + $svcName + '"')
+            Class = 'win32_service'
+            ErrorAction = 0
+        }
+
+        # Define a boolean to enable if changes are made which will require the service(s) to restart.
+        $ServiceRestartRequired = $false
+
+    }
+
+    end {
+        # Does the path exist?
+        $PathFound = Get-Item $KeyPath -ea 0
+        if (-not $PathFound) {
+            # If not create the path
+            if ($PSCmdlet.ShouldProcess($KeyPath,'Create New Path')) {
+                New-Item -Path $KeyPath
+                $ServiceRestartRequired = $true
+            }
+        }
+        # Does the property exist?
+        $GipSplat = @{
+            Path = $KeyPath
+            Name = $PropertyName
+            ErrorAction = 0
+        }
+        $PropertyFound = Get-ItemProperty @GipSplat
+        if ($PropertyFound) {
+
+            # Does the property already have the requested value?
+            if ( ($PropertyFound.$Property) -ne $Value ) {
+
+                # If not, set the new value
+                $SipSplat = @{
+                    Path = $KeyPath
+                    Name = $PropertyName
+                    Value = $Value
+                    ErrorAction = 'Stop'
+                }
+                $msg = "Set Property $($PropertyName) under Key Path $($KeyPath) to Value $($Value)"
+                if ($PSCmdlet.ShouldProcess($KeyPath,$msg)) {
+                    Set-ItemProperty @SipSplat
+                    $ServiceRestartRequired = $true
+                }
+
+            }#END if ( -not ($PropertyFound.$Property) -eq $Value )
+
+        } else {
+            
+            # If not, add the new value
+            $NipSplat = @{
+                Path = $KeyPath
+                Name = $PropertyName
+                Value = $Value
+                ErrorAction = 'Stop'
+            }
+            $msg = "Create Property $($PropertyName) under Key Path $($KeyPath) with Value $($Value)"
+            if ($PSCmdlet.ShouldProcess($KeyPath,$msg)) {
+                New-ItemProperty @NipSplat
+                $ServiceRestartRequired = $true
+            }
+
+        }#END if ($PropertyFound)
+
+
+        # Handle the service restart if needed
+        if ($ServiceRestartRequired) {
+
+            # Are there multiple services to restart?
+            if (@($ServiceName).count -gt 1) {
+
+                # Store the list of names in reverse order
+                $revSvcNames = [array]::Reverse($ServiceName)
+            
+            } else {
+                $revSvcNames = $ServiceName
+            }
+
+
+            # Loop through services in order to stop them
+            foreach ($svcName in @($ServiceName)) {
+                
+                # Capture the service as a WMI object
+                $svc = Get-WmiObject @WmiSplat
+
+                Write-Verbose "Restarting service $($svcName)..."
+
+                # Stop the service
+                if ($PSCmdlet.ShouldProcess($svcName,'Restart Service')) {
+                    $svc.StopService()
+                }
+                
+                # Pause
+                Start-Sleep -Seconds 1
+                
+                # Refresh the object
+                $svc = Get-WmiObject @WmiSplat
+
+                # Wait for it to stop, max 60 seconds
+                for ($i = 0; $i -lt 12 -and $svc.State -ne 'Stopped'; $i++) {
+
+                    # Pause
+                    Start-Sleep -Seconds 5
+
+                    # Refresh the object
+                    $svc = Get-WmiObject @WmiSplat
+                    
+                }
+
+            }
+
+            # Pause for a bit
+            Start-Sleep 2
+
+            # Loop through services in reverse order to start them.
+            foreach ($svcName in @($revSvcNames)) {
+
+                # Capture the service as a WMI object
+                $svc = Get-WmiObject @WmiSplat
+                
+                # Start the service
+                $svc.StartService()
+
+                # Pause
+                Start-Sleep -Seconds 1
+                
+                # Refresh the object
+                $svc = Get-WmiObject @WmiSplat
+
+                # Wait for it to start, max 60 seconds
+                for ($i = 0; $i -lt 12 -and $svc.State -ne 'Running'; $i++) {
+
+                    # Pause
+                    Start-Sleep -Seconds 5
+
+                    # Refresh the object
+                    $svc = Get-WmiObject @WmiSplat
+                    
+                }
+
+                if ($svc.State -ne 'Running') {
+                    Write-Warning "The $($svcName) service is not running! Please manually start the service or troubleshoot the issue."
+                } else {
+                    Write-Verbose "Successfully restarted service $($svcName)"
+                }
+                
+            }#END foreach ($svcName in $revSvcNames)
+        } else {
+
+            Write-Verbose "Confirmed values are already present. No changes made. No services restarted."
+
+        }#END if ($ServiceRestartRequired)
+    }#END end
 }
-$web.Dispose | Out-Null
 
-<#
-new draft functions
-# >
-
-$cimSplat = @{
-    Namespace = 'root/cimv2/mdm/dmmap'
-    Class = 'MDM_DevDetail_Ext01'
-    Filter = "InstanceID='Ext' AND ParentID='./DevDetail'"
-}
-Get-CimInstance @cimSplat | Select-Object -ExpandProperty DeviceHardwareData
-# For all workstations (edited) 
-
-#>
