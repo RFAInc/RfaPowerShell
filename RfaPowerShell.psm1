@@ -1032,3 +1032,23 @@ function Assert-RegValueAndRestartService {
         }#END if ($ServiceRestartRequired)
     }#END end
 }
+
+function Install-KB4571729 {
+# RFA - Tony Pagliaro (tonyp@rfa.com)
+# 2020-09-24
+# CVE-2020-1472 | Netlogon Elevation of Privilege Vulnerability
+#
+    # Define resources
+    $Uri = 'http://download.windowsupdate.com/d/msdownload/update/software/secu/2020/08/windows6.1-kb4571729-x64_62b8672a50cebb4bfcd4fb16e18a39ab472a5269.msu'
+    $FilePath = 'C:\Windows\Temp\windows6.1-kb4571729-x64_62b8672a50cebb4bfcd4fb16e18a39ab472a5269.msu'
+
+    # Downloading installer (~350MB)
+    (New-Object Net.WebClient).DownloadFile($Uri,$FilePath)
+
+    # Use WUSA
+    if (Test-Path $FilePath) {
+            Start-Sleep -Seconds 5
+            Start-Process -FilePath "wusa.exe" -ArgumentList "$($FilePath) /quiet /norestart" -Wait 
+    }
+
+}
