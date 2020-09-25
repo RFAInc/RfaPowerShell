@@ -1038,17 +1038,24 @@ function Install-KB4571729 {
 # 2020-09-24
 # CVE-2020-1472 | Netlogon Elevation of Privilege Vulnerability
 #
-    # Define resources
-    $Uri = 'http://download.windowsupdate.com/d/msdownload/update/software/secu/2020/08/windows6.1-kb4571729-x64_62b8672a50cebb4bfcd4fb16e18a39ab472a5269.msu'
-    $FilePath = 'C:\Windows\Temp\windows6.1-kb4571729-x64_62b8672a50cebb4bfcd4fb16e18a39ab472a5269.msu'
+    # Test to ensure this is a 2008 R2 server
+    $os = Get-WmiObject Win32_OperatingSystem
+    if ($os.Caption -like '*server*2008*R2*') {
 
-    # Downloading installer (~350MB)
-    (New-Object Net.WebClient).DownloadFile($Uri,$FilePath)
-
-    # Use WUSA
-    if (Test-Path $FilePath) {
+        # Define resources
+        $Uri = 'http://download.windowsupdate.com/d/msdownload/update/software/secu/2020/08/windows6.1-kb4571729-x64_62b8672a50cebb4bfcd4fb16e18a39ab472a5269.msu'
+        $FilePath = 'C:\Windows\Temp\windows6.1-kb4571729-x64_62b8672a50cebb4bfcd4fb16e18a39ab472a5269.msu'
+        
+        # Downloading installer (~350MB)
+        (New-Object Net.WebClient).DownloadFile($Uri,$FilePath)
+        
+        # Use WUSA
+        if (Test-Path $FilePath) {
             Start-Sleep -Seconds 5
             Start-Process -FilePath "wusa.exe" -ArgumentList "$($FilePath) /quiet /norestart" -Wait 
+        }
+        
+    } else {
+        Write-Warning "This server is not a 2008 R2 server!"
     }
-
 }
