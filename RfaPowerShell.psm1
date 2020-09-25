@@ -1048,10 +1048,10 @@ function Install-KB4571729 {
         
         # Downloading installer (~350MB)
         (New-Object Net.WebClient).DownloadFile($Uri,$FilePath)
+        Start-Sleep -Seconds 5
         
         # Use WUSA
         if (Test-Path $FilePath) {
-            Start-Sleep -Seconds 5
             Start-Process -FilePath "wusa.exe" -ArgumentList "$($FilePath) /quiet /norestart" -Wait 
         }
         
