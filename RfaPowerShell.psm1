@@ -27,6 +27,8 @@ function Add-TrueTypeFont {
     Adds TTF files to Windows Control Panel on the local computer only. Must run as admin.
     .EXAMPLE
     dir \\server\share\fonts\*.ttf | Add-TrueTypeFont
+    .NOTES
+    Depreciated. No not use. Use Install-Font instead.
     #>
     [CmdletBinding()]
     param (
@@ -120,69 +122,68 @@ function Add-TrueTypeFont {
 
 }
 
-function Get-Font {      
+function Install-Font {
+
     <#
-    .Synopsis
-        Gets the fonts currently loaded on the system
-    .Description
-        Uses the type System.Windows.Media.Fonts static property SystemFontFamilies,
-        to retrieve all of the fonts loaded by the system.  If the Fonts type is not found,
-        the PresentationCore assembly will be automatically loaded
-    .Parameter Font
-        A string supporting wildcards to search for font names
-    .Example
-        # Get All Fonts
-        Get-Font
-    .Example
-        # Get All Lucida Fonts
-        Get-Font *Lucida*
-    .Notes
-    https://blogs.msdn.microsoft.com/mediaandmicrocode/2008/12/24/microcode-powershell-scripting-tricks-get-font/
-    #>
-    param(
-        $Font = "*"
+    .SYNOPSIS Install system fonts for all users
+    .PARAMETER FontPath Provide path to a font or a folder containing fonts
+    .PARAMETER Recurse Scan subdirectories  
+    .EXAMPLE - Install Fonts from folder
+    Install-Font "C:\Temp\Helvetica Neue"
+    .EXAMPLE - Install one font 
+    Install-Font "C:\Temp\Helvetica Neue\HelveticaNeueLTStd-HvIt.otf"  
+    .NOTES
+    Borrowed from: https://www.joseespitia.com/2019/10/07/install-font-function/
+    #> 
+
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [String]$FontPath,
+        [Switch]$Recurse
     )
+ 
+    if(Test-Path $FontPath) {
+         
+        $FontFile = Get-Item -Path $FontPath
+ 
+        if($FontFile -is [System.IO.DirectoryInfo]) {
+ 
+            if ($Recurse) {
+                $Fonts = Get-ChildItem -Path $FontFile -Include ('*.fon','*.otf','*.ttc','*.ttf') -Recurse
+            } else {
+                $Fonts = Get-ChildItem -Path "$FontFile\*" -Include ('*.fon','*.otf','*.ttc','*.ttf')
+            }
 
-    if (-not ("Windows.Media.Fonts" -as [Type])) {
-        Add-Type -AssemblyName "PresentationCore"
-    }       
+            if (!$Fonts) {
+                Throw ("Unable to find any fonts in the folder")
+            }
 
-    [Windows.Media.Fonts]::SystemFontFamilies |
-        Where-Object { $_.Source -like "$font" } 
+        } elseif ($FontFile -is [IO.FileInfo]) {
+ 
+            if ($FontFile.Extension -notin ('.fon','.otf','.ttc','.ttf')) {
+                Throw ("The file provided does not appear to be a valid font")
+            } 
+            $Fonts = $FontFile
 
-}
+        } else {
+            Throw ("Expected font or folder")
+        }
+ 
+    } else {
+        Throw [System.IO.FileNotFoundException]::New("Could not find path: $FontPath")
+    }
 
-function Get-Font {      
-    <#
-    .Synopsis
-        Gets the fonts currently loaded on the system
-    .Description
-        Uses the type System.Windows.Media.Fonts static property SystemFontFamilies,
-        to retrieve all of the fonts loaded by the system.  If the Fonts type is not found,
-        the PresentationCore assembly will be automatically loaded
-    .Parameter Font
-        A string supporting wildcards to search for font names
-    .Example
-        # Get All Fonts
-        Get-Font
-    .Example
-        # Get All Lucida Fonts
-        Get-Font *Lucida*
-    .Notes
-    https://blogs.msdn.microsoft.com/mediaandmicrocode/2008/12/24/microcode-powershell-scripting-tricks-get-font/
-    #>
-    param(
-        $Font = "*"
-    )
-
-    if (-not ("Windows.Media.Fonts" -as [Type])) {
-        Add-Type -AssemblyName "PresentationCore"
-    }       
-
-    [Windows.Media.Fonts]::SystemFontFamilies |
-        Where-Object { $_.Source -like "$font" } 
-
-}
+    foreach ($Font in $Fonts) {
+ 
+        $FontName = $Font.Basename
+        Write-Verbose "Installing font: $FontName"
+        Copy-Item $Font "C:\Windows\Fonts" -Force
+        [void] (New-ItemProperty -Name $FontName -Path "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Fonts" -PropertyType String -Value $Font.Name -Force)
+ 
+    }
+ 
+}#END function Install-Font
 
 function Get-PathFolders
 {
