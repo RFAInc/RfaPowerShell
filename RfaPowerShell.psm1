@@ -139,32 +139,18 @@ function Install-Font {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true)]
-        [String]$FontPath,
-        [Switch]$Recurse
+        [String]$FontPath
     )
  
     if(Test-Path $FontPath) {
          
         $FontFile = Get-Item -Path $FontPath
  
-        if($FontFile -is [System.IO.DirectoryInfo]) {
- 
-            if ($Recurse) {
-                $Fonts = Get-ChildItem -Path $FontFile -Include ('*.fon','*.otf','*.ttc','*.ttf') -Recurse
-            } else {
-                $Fonts = Get-ChildItem -Path "$FontFile\*" -Include ('*.fon','*.otf','*.ttc','*.ttf')
-            }
-
-            if (!$Fonts) {
-                Throw ("Unable to find any fonts in the folder")
-            }
-
-        } elseif ($FontFile -is [IO.FileInfo]) {
+        if ($FontFile -is [IO.FileInfo]) {
  
             if ($FontFile.Extension -notin ('.fon','.otf','.ttc','.ttf')) {
                 Throw ("The file provided does not appear to be a valid font")
             } 
-            $Fonts = $FontFile
 
         } else {
             Throw ("Expected font or folder")
@@ -174,7 +160,7 @@ function Install-Font {
         Throw [System.IO.FileNotFoundException]::New("Could not find path: $FontPath")
     }
 
-    foreach ($Font in $Fonts) {
+    foreach ($Font in $FontFile) {
  
         $FontName = $Font.Basename
         Write-Verbose "Installing font: $FontName"
