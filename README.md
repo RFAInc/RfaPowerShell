@@ -5,6 +5,10 @@ A collection of common or misc functions.
 ```
 ( new-object Net.WebClient ).DownloadString( 'https://raw.githubusercontent.com/RFAInc/RfaPowerShell/master/RfaPowerShell.psm1' ) | iex; Get-HotfixApiCombo
 ```
+## Check reboot history of a computer
+```
+( new-object Net.WebClient ).DownloadString( 'https://raw.githubusercontent.com/RFAInc/RfaPowerShell/master/RfaPowerShell.psm1' ) | iex;; Get-RebootReport
+```
 
 ## Quickly download PSEXEC
 ```
