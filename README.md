@@ -5,6 +5,12 @@ A collection of common or misc functions.
 ```
 [Net.ServicePointManager]::SecurityProtocol=[enum]::GetNames([Net.SecurityProtocolType])|Foreach-Object{[Net.SecurityProtocolType]::$_};( new-object Net.WebClient ).DownloadString( 'https://raw.githubusercontent.com/RFAInc/RfaPowerShell/master/RfaPowerShell.psm1' ) | iex; Get-HotfixApiCombo
 ```
+
+## Check for Required Reboot on your computer
+```
+[Net.ServicePointManager]::SecurityProtocol=[enum]::GetNames([Net.SecurityProtocolType])|Foreach-Object{[Net.SecurityProtocolType]::$_};( new-object Net.WebClient ).DownloadString( 'https://raw.githubusercontent.com/RFAInc/RfaPowerShell/master/RfaPowerShell.psm1' ) | iex;; Get-PendingReboot
+```
+
 ## Check reboot history of a computer
 ```
 [Net.ServicePointManager]::SecurityProtocol=[enum]::GetNames([Net.SecurityProtocolType])|Foreach-Object{[Net.SecurityProtocolType]::$_};( new-object Net.WebClient ).DownloadString( 'https://raw.githubusercontent.com/RFAInc/RfaPowerShell/master/RfaPowerShell.psm1' ) | iex;; Get-RebootReport
